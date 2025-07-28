@@ -1,0 +1,796 @@
+---
+title: "Hate crimes in NYC"
+author: "Janet Rosenbaum"
+date: "`r format(Sys.Date())`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, message=F, warning=F}
+library(mosaic)
+library(readstata13)
+library(faraway)
+library(MASS)
+library(table1)
+library(tab)
+library(gplots)
+library(tidyr)
+```
+
+```{r, eval=T}
+H = read.dta13("~/Library/CloudStorage/OneDrive-DownstateMedicalCenter/projects/Hate crimes/NYPD hate crimes/NYPD_Hate_Crimes_2019_2024.dta")
+```
+
+```{r, eval=F}
+H = read.dta13("~/Library/CloudStorage/OneDrive-DownstateMedicalCenter/projects/Hate crimes/NYPD hate crimes/NYPD_Hate_Crimes_20250716.dta")
+```
+
+These data go through October. There are no hate crimes recorded yet for the last 3 months of the year October, November, December. 
+
+```{r, eval=F}
+H = read.dta13("~/Library/CloudStorage/OneDrive-DownstateMedicalCenter/projects/Hate crimes/NYPD hate crimes/NYPD_Hate_Crimes_20250324.dta")
+```
+
+```{r}
+#H = read.dta13("~/OneDrive - Downstate Medical Center/data/NYPD hate crimes/NYPD_Hate_Crimes_20240405.dta")
+```
+
+```{r}
+names(H)
+H$noarrest=H$arrestid==""
+tally(~noarrest, data=H)
+```
+
+```{r}
+tally(patrolboroughname ~ county, data=H)
+length(tally(~complaintprecinctcode, data=H))
+```
+
+```{r}
+tally(~offensecategory, data=H)
+```
+
+
+
+```{r}
+tally(~lawcodecategorydescription, data=H)
+tally(~offensedescription, data=H)
+```
+
+```{r}
+H$fall=H$monthnumber==9 | H$monthnumber==10 |H$monthnumber==11
+H$summer=H$monthnumber==6 | H$monthnumber==7 |H$monthnumber==8
+H$winter=H$monthnumber==12 | H$monthnumber==1 | H$monthnumber==2
+H$spring=H$monthnumber==3 | H$monthnumber==4 | H$monthnumber==5
+H$season = 1*(H$winter==T) + 2*(H$spring==T) + 3*(H$summer==T) + 4*(H$fall==T)
+
+H$season.f= factor(H$season, levels=1:4, labels=c("Winter", "Spring", "Summer", "Fall"))
+tally(~season.f, H)
+tally(~season.f, H, format="percent")
+```
+
+```{r}
+H$year=H$complaintyearnumber-2019
+tally(~year, data=H)
+```
+
+
+```{r}
+H$year.f= factor(H$year, levels=0:6, labels=c("2019", "2020", "2021", "2022", "2023", "2024", "2025"))
+tally(~year.f, data=H)
+sum(tally(~year.f, data=H))
+```
+
+3255 total hate crimes. 
+3450 total hate crimes from 2019-2024
+3575 total from 2019 through March 2025
+```{r}
+H$felony = H$lawcodecategorydescription=="FELONY"
+tally(felony~lawcodecategorydescription, data=H)
+H$antijewish = H$biasmotivedescription=="ANTI-JEWISH"
+tally(biasmotivedescription~antijewish, data=H)
+```
+
+group_by(biasmotivedescription) %>% 
+  mutate(total=sum(count))
+
+
+```{r}
+tally(spring ~ antijewish, data=H)
+tally(spring ~ antijewish, data=H, format="percent")
+chisq.test(tally(spring ~ antijewish, data=H))
+tally(summer ~ antijewish, data=H)
+tally(summer ~ antijewish, data=H, format="percent")
+chisq.test(tally(summer ~ antijewish, data=H))
+tally(fall ~ antijewish, data=H)
+tally(fall ~ antijewish, data=H, format="percent")
+chisq.test(tally(fall ~ antijewish, data=H))
+tally(winter ~ antijewish, data=H)
+tally(winter ~ antijewish, data=H, format="percent")
+chisq.test(tally(winter ~ antijewish, data=H))
+```
+
+
+
+
+
+# Cross tabulations
+
+
+NY County	247,100	234,200	261,500
+Kings	483,100	458,900	508,900
+Queens	144,600	132,300	156,700
+Richmond	31,100	26,000	36,700
+Bronx	37,900	31,600	44,300
+
+
+
+```{r}
+(num = tally(county~complaintyearnumber , data=H, subset=antijewish==T))
+(totalboro=apply(num, 1, sum))
+```
+
+```{r}
+populationmatrix=population=matrix(c(37900, 31600, 44300, 
+                          483100, 458900, 508900, 
+                          247100, 234200, 261500,
+                          144600, 132300, 156700,
+                          31100, 26000, 36700), byrow=T, ncol=3)
+rownames(population)=c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island")
+colnames(population) = c("Estimate", "Low", "High")
+population
+```
+
+```{r}
+100000*totalboro[1]/population[1,]/6
+100000*totalboro[2]/population[2,]/6
+100000*totalboro[3]/population[3,]/6
+100000*totalboro[4]/population[4,]/6
+100000*totalboro[5]/population[5,]/6
+```
+
+```{r, eval=F}
+100000*totalboro[1]/population[1,]/5.75
+100000*totalboro[2]/population[2,]/5.75
+100000*totalboro[3]/population[3,]/5.75
+100000*totalboro[4]/population[4,]/5.75
+100000*totalboro[5]/population[5,]/5.75
+```
+
+```{r}
+population[,1]
+```
+
+
+```{r}
+incidence = 100000*rbind(num[1,]/populationmatrix[1,1],
+                         num[2,]/populationmatrix[2,1],
+                         num[3,]/populationmatrix[3,1],
+                         num[4,]/populationmatrix[4,1],
+                         num[5,]/populationmatrix[5,1]
+                )
+incidence.hi = 100000*rbind(num[1,]/populationmatrix[1,2],
+                         num[2,]/populationmatrix[2,2],
+                         num[3,]/populationmatrix[3,2],
+                         num[4,]/populationmatrix[4,2],
+                         num[5,]/populationmatrix[5,2]
+                )
+incidence.lo =  100000*rbind(num[1,]/populationmatrix[1,3],
+                         num[2,]/populationmatrix[2,3],
+                         num[3,]/populationmatrix[3,3],
+                         num[4,]/populationmatrix[4,3],
+                         num[5,]/populationmatrix[5,3]
+                )        
+rownames(incidence) = rownames(incidence.hi) = rownames(incidence.lo) = rownames(population)
+```
+
+
+```{r}
+incidence
+incidence.lo
+incidence.hi
+```
+col="green", barcol="green",
+par(new=T)
+col="blue", barcol="blue",
+```{r}
+par(mfrow=c(2,3))
+plotCI(incidence[1,], li=incidence.lo[1,], ui=incidence.hi[1,], xlim=c(2018.5, 2024.5), ylim=c(0, 90), x=2019:2024, pch=20, lty=1, sfrac=0, gap=0, ylab="Incidence per 100000", xlab="Year", type="b", main="Bronx")
+plotCI(incidence[2,], li=incidence.lo[2,], ui=incidence.hi[2,], xlim=c(2018.5, 2024.5), ylim=c(0, 90), x=2019:2024, pch=20, lty=1, sfrac=0, gap=0, ylab="Incidence per 100000", xlab="Year",type="b", main="Brooklyn")
+plotCI(incidence[3,], li=incidence.lo[3,], ui=incidence.hi[3,], xlim=c(2018.5, 2024.5), ylim=c(0, 90), x=2019:2024, pch=20, lty=1, sfrac=0, gap=0, ylab="Incidence per 100000", xlab="Year", type="b", main="Manhattan")
+plotCI(incidence[4,], li=incidence.lo[4,], ui=incidence.hi[4,], xlim=c(2018.5, 2024.5), ylim=c(0, 90), x=2019:2024, pch=20,  lty=1, sfrac=0, gap=0, ylab="Incidence per 100000", xlab="Year",  type="b", main="Queens")
+plotCI(incidence[5,], li=incidence.lo[5,], ui=incidence.hi[5,], xlim=c(2018.5, 2024.5), ylim=c(0, 90), x=2019:2024, pch=20,  lty=1, sfrac=0, gap=0, ylab="Incidence per 100000", xlab="Year", type="b", main="Staten Island")
+```
+```{r}
+plotCI(incidence[1,], li=incidence.lo[1,], ui=incidence.hi[1,], xlim=c(2018.5, 2025), ylim=c(0, 100), x=0+2019:2024, pch=1, axes=F, lty=1, sfrac=0, gap=0, ylab="Incidence per 100,000", xlab="", type="b")
+par(new=T)
+plotCI(incidence[2,], li=incidence.lo[2,], ui=incidence.hi[2,], xlim=c(2018.5, 2025), ylim=c(0, 100), x=0.1+2019:2024, pch=2, axes=F, lty=1, sfrac=0, gap=0, ylab="", xlab="", type="b")
+par(new=T)
+plotCI(incidence[3,], li=incidence.lo[3,], ui=incidence.hi[3,], xlim=c(2018.5, 2025), ylim=c(0, 100), x=0+2019:2024, pch=3, axes=F, lty=1, sfrac=0, gap=0, ylab="", xlab="", type="b")
+par(new=T)
+plotCI(incidence[4,], li=incidence.lo[4,], ui=incidence.hi[4,], xlim=c(2018.5, 2025), ylim=c(0, 100), x=0.1+2019:2024, pch=4, axes=F, lty=1, sfrac=0, gap=0, ylab="", xlab="", type="b")
+par(new=T)
+plotCI(incidence[5,], li=incidence.lo[5,], ui=incidence.hi[5,], xlim=c(2018.5, 2025), ylim=c(0, 100), x=0.2+2019:2024, pch=5, axes=F, lty=1, sfrac=0, gap=0, ylab="", xlab="", type="b")
+par(new=T)
+axis(side=2)
+axis(side=1, at=2019:2024, lwd=0, lwd.ticks=0)
+legend(2023, 105, rownames(incidence), ncol=1, bty="n", cex=0.9, pch=1:5)
+```
+
+
+```{r}
+plotCI(incidence[1,], li=incidence.lo[1,], ui=incidence.hi[1,], xlim=c(2018.5, 2025), ylim=c(0, 90), x=0+2019:2024, pch=1, axes=F, lty=1, sfrac=0, gap=0, ylab="Incidence per 100,000", xlab="", col="green", barcol="green", type="b")
+par(new=T)
+plotCI(incidence[2,], li=incidence.lo[2,], ui=incidence.hi[2,], xlim=c(2018.5, 2025), ylim=c(0, 90), x=0.1+2019:2024, pch=2, axes=F, lty=1, sfrac=0, gap=0, ylab="", xlab="", col="blue", barcol="blue", type="b")
+par(new=T)
+plotCI(incidence[3,], li=incidence.lo[3,], ui=incidence.hi[3,], xlim=c(2018.5, 2025), ylim=c(0, 90), x=0+2019:2024, pch=3, axes=F, lty=1, sfrac=0, gap=0, ylab="", xlab="", col="red", barcol="red", type="b")
+par(new=T)
+plotCI(incidence[4,], li=incidence.lo[4,], ui=incidence.hi[4,], xlim=c(2018.5, 2025), ylim=c(0, 90), x=0.1+2019:2024, pch=4, axes=F, lty=1, sfrac=0, gap=0, ylab="", xlab="", col="cyan", barcol="cyan", type="b")
+par(new=T)
+plotCI(incidence[5,], li=incidence.lo[5,], ui=incidence.hi[5,], xlim=c(2018.5, 2025), ylim=c(0, 90), x=0.2+2019:2024, pch=5, axes=F, lty=1, sfrac=0, gap=0, ylab="", xlab="", col="purple", barcol="purple", type="b")
+par(new=T)
+axis(side=2)
+axis(side=1, at=2019:2024, lwd=0, lwd.ticks=0)
+legend(2023, 98, rownames(incidence), col=c("green", "blue", "red", "cyan", "purple"), ncol=1, bty="n", cex=0.9, pch=1:5)
+```
+
+
+
+
+
+```{r}
+tally(county~antijewish, data=H)
+chisq.test(tally(county~antijewish, data=H))
+tally(county~antijewish, data=H, format="percent")
+pairwise.prop.test(tally(county~antijewish, data=H))
+```
+
+
+## Felonies
+```{r}
+tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="FELONY")
+chisq.test(tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="FELONY"))
+tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="FELONY", format="percent")
+```
+
+
+
+```{r}
+length(tally(~offensedescription, data=H))
+tally(offensedescription ~ lawcodecategorydescription, data=H)
+```
+```{r}
+tally(noarrest~antijewish, data=H)
+tally(noarrest~antijewish, data=H, format="percent")
+chisq.test(tally(noarrest~antijewish, data=H))
+```
+
+```{r}
+tally(felony~antijewish, data=H)
+tally(felony~antijewish, data=H, format="percent")
+chisq.test(tally(felony~antijewish, data=H))
+```
+
+
+```{r}
+tally(noarrest ~felony, data=H)
+tally(noarrest ~felony, data=H, format="percent")
+chisq.test(tally(noarrest ~felony, data=H))
+```
+
+
+```{r}
+tally(noarrest ~felony, data=H, subset=antijewish==T)
+tally(noarrest ~felony, data=H, format="percent", subset=antijewish==T)
+chisq.test(tally(noarrest ~felony, data=H, subset=antijewish==T))
+```
+
+
+```{r}
+tally(noarrest ~felony, data=H, subset=antijewish==F)
+tally(noarrest ~felony, data=H, format="percent", subset=antijewish==F)
+chisq.test(tally(noarrest ~felony, data=H, subset=antijewish==F))
+```
+
+
+```{r}
+H$misc=H$offensedescription=="MISCELLANEOUS PENAL LAW"
+#tally(offensedescription ~ misc, data=H)
+chisq.test(tally(misc~ antijewish, data=H))
+```
+
+```{r}
+tally(misc ~ antijewish, data=H, subset=noarrest==T & lawcodecategorydescription=="FELONY")
+tally(misc ~ antijewish, data=H, subset=noarrest==F & lawcodecategorydescription=="FELONY")
+```
+
+
+```{r}
+tally(noarrest ~ misc, data=H, subset=antijewish==T & lawcodecategorydescription=="FELONY")
+tally(noarrest ~ misc, data=H, subset=antijewish==F & lawcodecategorydescription=="FELONY")
+tally(noarrest ~ misc, data=H, subset=antijewish==T & lawcodecategorydescription=="FELONY", format="percent")
+tally(noarrest ~ misc, data=H, subset=antijewish==F & lawcodecategorydescription=="FELONY", format="percent")
+chisq.test(tally(noarrest ~ misc, data=H, subset=antijewish==T & lawcodecategorydescription=="FELONY"))
+chisq.test(tally(noarrest ~ misc, data=H, subset=antijewish==F & lawcodecategorydescription=="FELONY"))
+```
+
+
+```{r}
+H$crimmischief=H$offensedescription=="CRIMINAL MISCHIEF & RELATED OF" & H$lawcodecategorydescription=="FELONY" 
+#tally(offensedescription ~ crimmischief, data=H)
+chisq.test(tally(crimmischief~ antijewish, data=H, subset= H$lawcodecategorydescription=="FELONY"))
+
+H$robbery=H$offensedescription=="ROBBERY"
+#tally(offensedescription ~ robbery, data=H)
+chisq.test(tally(robbery~ antijewish, data=H))
+```
+
+
+```{r}
+H$miscpenal=H$offensedescription=="MISCELLANEOUS PENAL LAW"
+#tally(offensedescription ~ miscpenal, data=H)
+chisq.test(tally(miscpenal~ antijewish, data=H))
+```
+
+
+```{r}
+H$grandlarceny=H$offensedescription=="GRAND LARCENY"
+#tally(offensedescription ~ grandlarceny, data=H)
+chisq.test(tally(grandlarceny~ antijewish, data=H))
+
+H$felonyassault=H$offensedescription=="FELONY ASSAULT"
+#tally(offensedescription ~ felonyassault, data=H)
+chisq.test(tally(felonyassault~ antijewish, data=H))
+```
+## misdemeanor
+```{r}
+tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="MISDEMEANOR")
+chisq.test(tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="MISDEMEANOR"))
+tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="MISDEMEANOR", format="percent")
+```
+
+```{r}
+H$assault3=H$offensedescription=="ASSAULT 3 & RELATED OFFENSES" & H$lawcodecategorydescription=="MISDEMEANOR"
+#tally(offensedescription ~ assault3, data=H)
+chisq.test(tally(assault3~ antijewish, data=H))
+H$crimmischiefmis=H$offensedescription=="CRIMINAL MISCHIEF & RELATED OF" & H$lawcodecategorydescription=="MISDEMEANOR"
+#tally(offensedescription ~ crimmischiefmis, data=H)
+chisq.test(tally(crimmischiefmis~ antijewish, data=H, subset= H$lawcodecategorydescription=="MISDEMEANOR"))
+H$publicorder=H$offensedescription=="OFF. AGNST PUB ORD SENSBLTY &"
+#tally(offensedescription ~ publicorder, data=H)
+chisq.test(tally(publicorder~ antijewish, data=H))
+H$petitlarceny=H$offensedescription=="PETIT LARCENY"
+#tally(offensedescription ~ petitlarceny, data=H)
+chisq.test(tally(petitlarceny~ antijewish, data=H))
+```
+```{r}
+tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="INVESTIGATION")
+chisq.test(tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="INVESTIGATION"))
+tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="INVESTIGATION", format="percent")
+
+tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="VIOLATION")
+chisq.test(tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="VIOLATION"))
+tally(offensedescription~antijewish, data=H, subset=lawcodecategorydescription=="VIOLATION", format="percent")
+```
+
+```{r}
+tally(offensedescription~lawcodecategorydescription, data=H, subset=antijewish==F)
+```
+
+```{r}
+table1(~biasmotivedescription| complaintyearnumber, data=H)
+```
+
+```{r}
+t = with(H, table(biasmotivedescription, complaintyearnumber))
+t2=cbind(t, total=margin.table(t, 1))
+(t3=t2[order(t2[,7], decreasing=T),])
+```
+```{r}
+sum(t)
+margin.table(t, 2)
+```
+
+
+```{r}
+tally(~biasmotivedescription, data=H)
+```
+
+
+```{r}
+H2 <- group_by(H, complaintyearnumber, monthnumber, biasmotivedescription) %>%
+    summarise(count=n()) %>% 
+  group_by(complaintyearnumber, monthnumber) %>% 
+  mutate(total=sum(count))
+```
+
+
+```{r}
+H2$antijewish = H2$biasmotivedescription=="ANTI-JEWISH"
+H2$postoct7 = H2$complaintyearnumber==2025 | H2$complaintyearnumber==2024 | (H2$monthnumber>=10 & H2$complaintyearnumber==2023)
+H2$date = H2$complaintyearnumber + (H2$monthnumber-1)/12
+```
+
+
+We can use a simpler data format dichotomizing as anti-Jewish versus all others.
+```{r}
+H3 <- group_by(H, complaintyearnumber, monthnumber, antijewish) %>%
+    summarise(count=n()) %>% 
+  group_by(complaintyearnumber, monthnumber) %>% 
+  mutate(total=sum(count))
+H3$postoct7 = H3$complaintyearnumber==2024 | (H3$monthnumber>=10 & H3$complaintyearnumber==2023)
+H3$date = H3$complaintyearnumber + (H3$monthnumber-1)/12
+```
+
+```{r}
+H3
+```
+
+
+
+
+```{r}
+H4 <- group_by(H, complaintyearnumber, monthnumber, antijewish, felony, noarrest) %>%
+    summarise(count=n()) %>% 
+  group_by(complaintyearnumber, monthnumber, felony, noarrest) %>% 
+  mutate(total=sum(count))
+H4$postoct7 = H4$complaintyearnumber==2024 | (H4$monthnumber>=10 & H4$complaintyearnumber==2023)
+H4$date = H4$complaintyearnumber + (H4$monthnumber-1)/12
+```
+
+
+
+```{r}
+names(H)
+```
+
+```{r}
+pop=population[,1]/100000
+pop
+pop["Bronx"]
+```
+
+
+
+```{r}
+H5 <- group_by(H, complaintyearnumber, monthnumber, county, antijewish, .drop = FALSE) %>%
+    summarise(count=n()) %>% 
+  group_by(complaintyearnumber, monthnumber, county.drop = FALSE) %>% 
+  mutate(total=sum(count)) %>%
+  mutate(population = case_when(county=="BRONX" ~ pop["Bronx"], 
+                                county=="KINGS" ~ pop["Brooklyn"],
+                                county=="NEW YORK" ~ pop["Manhattan"],
+                                county=="QUEENS" ~ pop["Queens"],
+                                county=="RICHMOND" ~ pop["Staten Island"]
+                                )
+         )
+tally(~county, data=H5)
+H5$postoct7 = H5$complaintyearnumber==2024 | (H5$monthnumber>=10 & H5$complaintyearnumber==2023)
+```
+
+```{r}
+dim(H5)
+H5
+```
+```{r, eval=F}
+H7 <- group_by(H, year.f, month.f, county.f, antijewish, .drop = FALSE) %>%
+    
+    summarise(count=n()) %>% 
+  group_by(year.f, month.f, county.f,  .drop = FALSE) %>%
+  mutate(total=sum(count)) %>%
+   mutate(population = case_when(county.f=="BRONX" ~ pop["Bronx"], 
+                                county.f=="KINGS" ~ pop["Brooklyn"],
+                                county.f=="NEW YORK" ~ pop["Manhattan"],
+                                county.f=="QUEENS" ~ pop["Queens"],
+                                county.f=="RICHMOND" ~ pop["Staten Island"]
+                                )
+         )
+H7$postoct7 = H7$year.f==2024 | (H7$year.f==2023 & (H7$month.f==10 | H7$month.f==11 | H7$month.f==12))
+H7
+```
+
+# Plots
+
+```{r}
+names(H3)
+```
+
+```{r}
+H3
+```
+
+
+```{r}
+AJ = subset(H3, antijewish==T & date<2025.4)
+AJ$AntiJewish=AJ$count
+AJ$AllOther = AJ$total - AJ$count
+AJ$Total = AJ$total
+xyplot(AntiJewish + Total ~date, type="b", data=AJ, pch=20, 
+       ylab="Number of hate crime incidents")
+```
+
+```{r}
+xyplot(AntiJewish + AllOther ~date, type="b", data=AJ, pch=c(20, 1), lty=c(1,3), col="black", 
+       ylab="Number of hate crime incidents", xlab="Year", key=list(space="top",
+         lines=list(pch=c(20, 1), lty=c(1,3), lwd=1), points=list(pch=c(20, 1)),
+         text=list(c("Anti-Jewish hate crimes","Other hate crimes"))
+))
+```
+```{r}
+perc.antijewish=with(subset(H3, antijewish==T& date<2025), 100*count/total)
+favstats(~perc.antijewish)
+count(perc.antijewish>=50)
+length(perc.antijewish)
+perc.antijewish[58:72]
+length(perc.antijewish[58:72])
+```
+
+
+```{r}
+xyplot(100*count/total ~date, type="b", subset=(antijewish==T & date<2025), data=H3, 
+       ylab="Anti-Jewish hate crime percentage", pch=20, ylim=c(0,100))
+ladd(panel.abline(h=50, lty=2, lwd=2, col="grey"))
+```
+
+
+```{r}
+H3date=subset(H3, date<2025)
+H3date$percentage = 100*H3date$count/H3date$total
+histogram(~percentage, data=subset(H3date, antijewish==T), xlim=c(0,100), nint=10)
+```
+```{r}
+qqnorm(subset(H3date, antijewish==T)$percentage)
+abline(a=0, b=1)
+
+shapiro.test(subset(H3date, antijewish==T)$percentage)
+```
+
+
+```{r}
+favstats(~percentage, data=subset(H3date, antijewish==T))
+c(45.3, 45.3-14.4, 45.3+14.4)
+c(45.3, 45.3-14.4*2, 45.3+14.4*2)
+```
+
+Previous: In each month, anti-Jewish hate crimes comprise between 14--78% of all hate crimes. At median, 43% of hate crimes are anti-Jewish, with an interquartile range between 33% and 53%. Jews comprise 16% percent of the NYC population.
+
+
+New: In each month, anti-Jewish hate crimes comprise between 14--78% of all hate crimes. At median, 46% of hate crimes are anti-Jewish, with an interquartile range between 34% and 53%. Jews comprise 16% percent of the NYC population.
+
+Source: Saxe, Leonard; Parmer, Daniel; Tighe, Elizabeth; Magidin de Kramer, Raquel (March 2021). "American Jewish Population Estimates Summary & Highlights" (PDF). Cohen Center for Modern Jewish Studies Steinhardt Social Research Institute. American Jewish Population Project. p. 9. Retrieved February 4, 2024.
+
+# Models predicting anti-Jewish vs. other hate crimes
+
+Quasi-Poisson model predicting count of anti-Jewish hate crime from county and an indicator for post-Oct 7.
+```{r}
+H5
+```
+
+Need to put zeroes back into the data.
+
+
+
+```{r}
+H.df = with(H, data.frame(county, complaintyearnumber, monthnumber, antijewish))
+
+H8 = H.df %>% 
+  filter(antijewish==T) %>% 
+   group_by(county) %>%  
+  complete(complaintyearnumber=2019:2024, monthnumber=1:12, fill=list(antijewish=0))%>%
+group_by(county, complaintyearnumber, monthnumber, .drop = FALSE) %>%
+  summarise(count=sum(antijewish)) %>% 
+   mutate(population = case_when(county=="BRONX" ~ pop["Bronx"], 
+                                county=="KINGS" ~ pop["Brooklyn"],
+                                county=="NEW YORK" ~ pop["Manhattan"],
+                                county=="QUEENS" ~ pop["Queens"],
+                                county=="RICHMOND" ~ pop["Staten Island"]
+                                )
+         )
+H8
+```
+
+
+```{r}
+H8$county.f = factor(H8$county, levels=c("KINGS", "NEW YORK", "QUEENS", "RICHMOND", "BRONX"))
+H8$postoct7 = H8$complaintyearnumber==2024 | (H8$complaintyearnumber==2023 & (H8$monthnumber==10 | H8$monthnumber==11 | H8$monthnumber==12))
+H8$date=H8$complaintyearnumber + (H8$monthnumber-1)/12
+```
+
+
+
+```{r}
+qpmodel1= glm(count ~ offset(log(population)) + postoct7 + county.f, data=H8, subset=(date<2025), family=quasipoisson)
+sumary(qpmodel1)
+cbind(exp(coef(qpmodel1)), exp(confint(qpmodel1)))
+```
+With zeroes: 
+Monthly anti-Jewish hate crimes in NYC were on average 3.1 times as common in October, November and December of 2023 than in January 2019 through September 2023, adjusting for each borough’s Jewish population and the monthly number of hate crimes in each borough. A second model found no effect modification by borough: that it, the increase in anti-Jewish hate crimes did not vary by borough. Compared with Brooklyn, hate crimes were 55% more common in Manhattan and 97% more common in the Bronx; there were no differences between Brooklyn with Queens and Staten Island.
+
+Check for excess zeroes. our model is not predicting 0 ever.
+```{r}
+table(round(qpmodel1$fitted.values))
+table(H8$count)
+```
+
+```{r}
+library(pscl)
+```
+
+```{r}
+names(H8)
+```
+
+
+
+
+
+Without zeroes:
+Monthly anti-Jewish hate crimes in NYC were on average 2.7 times as common in October, November and December of 2023 than in January 2019 through September 2023, adjusting for each borough’s Jewish population and the monthly number of hate crimes in each borough. A second model found no effect modification by borough: that it, the increase in anti-Jewish hate crimes did not vary by borough.
+
+
+```{r}
+nbmodel1= glm.nb(count ~ offset(log(population)) + postoct7 + county.f, data=H8, subset=(date<2025))
+summary(nbmodel1)
+cbind(exp(coef(nbmodel1)), exp(confint(nbmodel1)))
+```
+
+
+```{r}
+qpmodel2= glm(count ~ offset(log(population)) + postoct7 * county.f, data=H8, subset=(date<2024.75), family=quasipoisson)
+sumary(qpmodel2)
+```
+Adjusting for each borough's Jewish population and compared with Brooklyn, anti-Jewish hate crimes were 36% more common in Queens, 60% more common in Manhattan, 2.6 times as common in Staten Island, and 3.4 times as common in the Bronx; anti-Jewish hate crimes were 2.7 times as common in the last quarter of 2023 than in January 2019 through September 2023.
+
+
+
+```{r}
+qpmodel2= glm(count ~ offset(log(population)) + postoct7 * county, data=H5, subset=antijewish==T, family=quasipoisson)
+sumary(qpmodel2)
+cbind(exp(coef(qpmodel2)), exp(confint(qpmodel2)))
+
+```
+
+
+```{r}
+names(H)
+names(H4)
+dim(H4)
+H4
+```
+
+```{r}
+model1= glm(cbind(count, total-count) ~ postoct7 , data=H4, subset=antijewish==T, family=binomial)
+sumary(model1)
+cbind(exp(coef(model1)), exp(confint(model1)))
+```
+
+```{r}
+H3
+```
+
+
+
+```{r}
+H3$year=H3$complaintyearnumber-2019
+H3$fall=H3$monthnumber==9 | H3$monthnumber==10 |H3$monthnumber==11
+H3$summer=H3$monthnumber==6 | H3$monthnumber==7 |H3$monthnumber==8
+H3$winter=H3$monthnumber==12 | H3$monthnumber==1 | H3$monthnumber==2
+H3$spring=H3$monthnumber==3 | H3$monthnumber==4 | H3$monthnumber==5
+model1= glm(cbind(count, total-count) ~ postoct7 +year + winter, data=H3, subset=antijewish==T, family=binomial)
+sumary(model1)
+cbind(exp(coef(model1)), exp(confint(model1)))
+```
+
+```{r}
+model1= glm(cbind(count, total-count) ~ antijewish *postoct7, data=H2, family=binomial)
+sumary(model1)
+cbind(exp(coef(model1)), exp(confint(model1)))
+```
+
+Before October 2023, Jews had 9.1 times the odds of hate crimes than all other categories (OR=9.09, 95% CI (8.25, 10.0)); in October to December 2023, NYC had 42% lower odds of hate crimes for non-Jews (OR = 0.58, 95% CI (0.47, 0.70)) and 3.8 times the odds of hate-crimes for Jews (OR = 3.84, 95% CI (2.77, 5.35)).  
+
+```{r}
+model0= glm(cbind(count, total-count) ~ postoct7, data=subset(H2, antijewish==T), family=binomial)
+sumary(model0)
+cbind(exp(coef(model0)), exp(confint(model0)))
+```
+
+
+```{r}
+pmodel1= glm(count ~ offset(log(total)) + antijewish *postoct7, data=H2, family=poisson)
+sumary(pmodel1)
+cbind(exp(coef(pmodel1)), exp(confint(pmodel1)))
+```
+
+We used a Poisson distribution with an offset of the total number of hate crimes. 
+
+Before October 7, Jews had 5.6 times as many hate crimes as all other categories. After Octoer 7, NYC had 40% lower odds of hate crimes for all categories of hate crimes other than Jewish and 2.45 times more hate-crimes for Jews.  
+
+
+```{r}
+qpmodel1= glm(count ~ offset(log(total)) + antijewish *postoct7, data=H2, family=quasipoisson)
+sumary(qpmodel1)
+cbind(exp(coef(qpmodel1)), exp(confint(qpmodel1)))
+```
+
+
+We used a quasi-Poisson distribution with a dispersion parameter of 3.3, meaning that the variance in hate crimes is 3 times as large as with a Poisson distribution and an offset of a log of the total number of hate crimes. 
+
+Before October 7, Jews had 5.6 times as many hate crimes as all other categories (PR = 5.64, (4.87, 6.53)). After Octoer 7, NYC had 40% lower odds of hate crimes for all categories of hate crimes other than Jewish (PR = 0.60, 95% CI (0.41, 0.84)) and 2.45 times more hate-crimes for Jews (PR = 2.45, 95% CI (1.54, 3.95)).
+
+```{r}
+qpmodel0= glm(count ~  antijewish *postoct7, data=H2, family=quasipoisson)
+sumary(qpmodel0)
+cbind(exp(coef(qpmodel0)), exp(confint(qpmodel0)))
+```
+
+No offset model: We used a quasi-Poisson distribution with a dispersion parameter of 4.7, meaning that the variance in hate crimes is 4.7 times as large as the monthly mean. 
+
+Before October 7, Jews had 5.5 times as many hate crimes as all other categories (PR = 5.46, (4.59, 6.49)). After Octoer 7, NYC had 40% lower odds of hate crimes for all categories of hate crimes other than Jewish (PR = 0.60, 95% CI (0.41, 0.84)) and 2.45 times more hate-crimes for Jews (PR = 2.45, 95% CI (1.54, 3.95)).
+
+```{r}
+names(H5)
+```
+
+```{r}
+H6 <- group_by(H, complaintyearnumber, monthnumber, antijewish) %>%
+    summarise(count=n()) %>% 
+  group_by(complaintyearnumber, monthnumber) %>% 
+  mutate(total=sum(count))
+H6$postoct7 = H6$complaintyearnumber==2024 | (H6$monthnumber>=10 & H6$complaintyearnumber==2023)
+```
+
+```{r}
+qpmodel1= glm(count ~ offset(log(total)) + as.factor(complaintyearnumber) +postoct7, data=H6, subset=antijewish==T, family=quasipoisson)
+summary(qpmodel1)
+cbind(exp(coef(qpmodel1)), exp(confint(qpmodel1)))
+```
+
+```{r}
+nbmodel1= glm.nb(count ~ offset(log(total)) + county+as.factor(complaintyearnumber) +postoct7, data=H5, subset=antijewish==T)
+summary(nbmodel1)
+cbind(exp(coef(nbmodel1)), exp(confint(nbmodel1)))
+```
+
+
+
+```{r}
+nbmodel1= glm.nb(count ~ offset(log(total)) + postoct7, data=H4, subset=antijewish==T)
+summary(nbmodel1)
+cbind(exp(coef(nbmodel1)), exp(confint(nbmodel1)))
+```
+
+```{r}
+nbmodel1= glm.nb(count ~ offset(log(total)) + antijewish *postoct7, data=H4)
+summary(nbmodel1)
+cbind(exp(coef(nbmodel1)), exp(confint(nbmodel1)))
+```
+
+```{r}
+nbmodel1= glm.nb(count ~ offset(log(total)) + antijewish *postoct7, data=H2)
+summary(nbmodel1)
+cbind(exp(coef(nbmodel1)), exp(confint(nbmodel1)))
+```
+We used a negative binomial regression with a dispersion parameter of 3 and 1, using total number of hate crimes as an offset. We assume that hate crimes overall change due to various reasons.
+
+Before October 7, Jews had 5.7 times as many hate crimes as all other categories (RR = 5.66, (4.73, 6.80)). After October 7, NYC had 40% lower odds of hate crimes for all categories of hate crimes other than Jewish (RR = 0.60, 95% CI (0.44, 0.81)) and 2.42 times more hate-crimes for Jews (RR = 2.42, 95% CI (1.19, 5.47)).
+
+
+```{r}
+nbmodel0= glm.nb(count ~  antijewish *postoct7, data=H2)
+summary(nbmodel0)
+cbind(exp(coef(nbmodel0)), exp(confint(nbmodel0)))
+```
+
+Using negative binomial regression (theta = 2.2 and dispersion parameter = 1), with no offset for number of hate crimes, we found that prior to Oct 2023, Jews had 5.5 times as many hate crimes as all other categories combined (RR = 5.46, 95% CI (4.48, 6.71)). In October - December 2023 there was no overall change in hate crimes, but Jews had 2.51 times as many hate crimes as other categories combined (RR = 2.51, 95% CI (1.13, 6.48)).
+
+
+Regardless of the method used, we found that prior to Oct 2023, anti-Jewish hate crimes were over 5 times as common as all other hate crimes and anti-Jewish hate crimes became about 2.5 times as common in October-December 2023. 
+
+
+
+
